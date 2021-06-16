@@ -5,7 +5,8 @@ __pycache__/
 .idea
 # C extensions
 *.so
-
+raw/
+examples/rl_sac/exp/
 # Distribution / packaging
 .Python
 build/

@@ -1,0 +1,42 @@
+defaults:
+    - agent: m1_deep_geometry
+
+taskid: 1
+
+seed: 3
+
+max_episode_steps: 100
+
+obs_key: 'front_rgb'
+
+headless: True
+
+#
+## this needs to be specified manually
+experiment: rlbench_reach_target
+
+num_train_steps: 1e6
+replay_buffer_capacity: 1e4
+
+# warm start
+num_seed_steps: 1000
+
+eval_frequency: 1000
+num_eval_episodes: 5
+
+device: cuda
+
+# logger
+log_frequency: 1
+log_save_tb: true
+save_frequency: 50000
+
+# video recorder
+save_video: false
+
+
+# hydra configuration
+hydra:
+    name: ${experiment}
+    run:
+        dir: ./exp/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}

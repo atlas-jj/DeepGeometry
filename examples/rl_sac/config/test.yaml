@@ -1,0 +1,23 @@
+actor:
+  class: agent.actor.DiagGaussianActorWithEncoder
+  need_encoder: True
+  params:
+    obs_dim: 896
+    action_dim: 7
+    hidden_depth: 2
+    hidden_dim: 64
+    log_std_bounds: [-5, 2]
+
+encoder:
+  name: m1_deep_geometry
+  params:
+    image_input_channel_num: 3
+    conv_layer_params: { 'filter num': [ 16, 16, 32, 32 ], 'kernel sizes': [ 7, 3, 3, 3 ], 'strides': [ 1, 1, 2, 1 ] }
+    gnn_params: { 'layer_nums': [ 3, 4, 5 ], 'msg_dim': 128, 'h_dim': 128, 'output_dim': 128, 'share_basis_graphs': True }
+    key_point_num: 20
+    key_pointer_gauss_std: 0.1
+    key_pointer_flatten: 'conv2d'
+    debug_save_dir: '../raw'
+    debug_frequency: 1000
+    output_dim: 896
+
