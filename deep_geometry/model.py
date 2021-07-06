@@ -95,6 +95,7 @@ class DeepGeometricSet(nn.Module):
         # print('conv heatmap size')
         # print(x.shape)
         if self.debug_tool is not None and self.it_count % self.debug_frequency == 0:  # if debug mode, output more info
+            print('debug')
             conv_heatmaps = copy.deepcopy(x.detach().to('cpu'))
             x, gauss_mu, gauss_maps, vi_key_point_heatmaps = self.vi_key_pointer(x, self.vi_mode_on)
             self.debug_tool.vis_debugger(batch_image_tensors.detach().to('cpu'),
@@ -103,7 +104,8 @@ class DeepGeometricSet(nn.Module):
                                          vi_key_point_heatmaps.detach().to('cpu'),
                                          gauss_mu[:, :, 0].detach().to('cpu'),
                                          gauss_mu[:, :, 1].detach().to('cpu'),
-                                         show_graphs=True
+                                         show_graphs=True,
+                                         local=True
                                          )
 
         else:
@@ -133,16 +135,16 @@ if __name__ == "__main__":
     encoder_out_channel_num = conv_layer_params['filter num'][-1]
     gnn_params = {'layer_nums': [3, 4, 5], 'msg_dim': 128, 'h_dim': 128, 'output_dim': 128, 'share_basis_graphs': True}
 
-    vi_key_pointer = ViKeyPointBottleneck(_key_point_num=20, _gauss_std=0.1,
+    vi_key_pointer = LocalViKeyPointBottleneck(_key_point_num=20, _gauss_std=0.1,
                                           _output_dim=gnn_params['h_dim'], _flatten='conv2d')
 
     from debug_tools import *
-    debug_tool = DeepGeometrySetVisualizer(_save_dir='../raw', _verbose=True)
+    debug_tool = DeepGeometrySetVisualizer(_save_dir='../raw', _name_prefix='test', _verbose=True)
 
     deep_geometry_set = DeepGeometricSet(_conv_encoder=conv_encoder,
                                          _encoder_out_channels=encoder_out_channel_num,
                                          _vi_key_pointer=vi_key_pointer,
-                                         key_point_num=20, _gnn_params=gnn_params, _debug_tool=debug_tool, _debug_frequency=10
+                                         key_point_num=20, _gnn_params=gnn_params, _debug_tool=debug_tool, _debug_frequency=1
                                          )
     deep_geometry_set.apply(init_weights)
 

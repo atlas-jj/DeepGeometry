@@ -3,33 +3,38 @@ defaults:
 
 taskid: 1
 
-seed: 3
+seed: 6
 
-max_episode_steps: 100
+max_episode_steps: 500
 
-obs_key: 'front_rgb'
 
-headless: True
+headless: False
+
+agent_update_frequency: 1
+
+actor_lr: 1e-4  # 1e-4
+
+critic_lr: 1e-4
 
 #
 ## this needs to be specified manually
-experiment: rlbench_reach_target
+experiment: meta_press_button32
 
-num_train_steps: 1e6
-replay_buffer_capacity: 1e4
+num_train_steps: 8e6
+replay_buffer_capacity: 5e4
 
 # warm start
-num_seed_steps: 1000
+num_seed_steps: 10000
 
-eval_frequency: 1000
+eval_frequency: 2000
 num_eval_episodes: 5
 
 device: cuda
 
 # logger
-log_frequency: 1
-log_save_tb: true
-save_frequency: 50000
+log_frequency: 100
+log_save_tb: True
+save_frequency: 10000  #save to check point frequency
 
 # video recorder
 save_video: false

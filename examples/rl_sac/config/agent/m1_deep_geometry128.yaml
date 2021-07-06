@@ -2,7 +2,7 @@ agent:
   name: m1_deep_geometry
   class: agent.sac.SACAgent
   params:
-    obs_dim: 224 # to be specified later
+    obs_dim: 896 # to be specified later
     action_dim: ??? # to be specified later
     action_range: ??? # to be specified later
     device: ${device}
@@ -12,10 +12,10 @@ agent:
     init_temperature: 0.1
     alpha_lr: 1e-4
     alpha_betas: [0.9, 0.999]
-    actor_lr: 1e-4
+    actor_lr: ${actor_lr}
     actor_betas: [0.9, 0.999]
     actor_update_frequency: 1
-    critic_lr: 1e-4
+    critic_lr: ${critic_lr}
     critic_betas: [0.9, 0.999]
     critic_tau: 0.005
     critic_target_update_frequency: 2
@@ -33,7 +33,7 @@ double_q_critic:
     hidden_depth: 2
     has_proprio_input: True
     proprio_dim: 4  #
-    proprio_expanded_dim: 16
+    proprio_expanded_dim: 64
 
 diag_gaussian_actor:
   class: agent.actor.DiagGaussianActorWithEncoder
@@ -45,19 +45,17 @@ diag_gaussian_actor:
     log_std_bounds: [-5, 2]
     has_proprio_input: True
     proprio_dim: 4  #
-    proprio_expanded_dim: 16
+    proprio_expanded_dim: 64
 
 encoder:
   name: ${agent.name}
   params:
     image_input_channel_num: 3
     conv_layer_params: { 'filter num': [ 16, 16, 32, 32 ], 'kernel sizes': [ 7, 3, 3, 3 ], 'strides': [ 1, 1, 2, 1 ] }
-    gnn_params: { 'layer_nums': [ 3, 4, 4], 'msg_dim': 32, 'h_dim': 32, 'output_dim': 32, 'share_basis_graphs': True }
+    gnn_params: { 'layer_nums': [ 3, 4, 4], 'msg_dim': 128, 'h_dim': 128, 'output_dim': 128, 'share_basis_graphs': True }
     key_point_num: 20
     key_pointer_gauss_std: 0.1
     key_pointer_flatten: 'conv2d'
     debug_save_dir: '../../raw'
     debug_frequency: 1000
-    output_dim: 224
-
-
+    output_dim: 896

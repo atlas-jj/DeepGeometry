@@ -36,6 +36,7 @@ def m1_build_deep_geometry_set_encoder(cfg, vi_mode_on=True):
     image_input_channel_num = cfg['image_input_channel_num']
     conv_layer_params = cfg['conv_layer_params']
     gnn_params = cfg['gnn_params']
+    print(gnn_params)
     key_point_num = cfg['key_point_num']
     key_pointer_gauss_std = cfg['key_pointer_gauss_std']
     key_pointer_flatten = cfg['key_pointer_flatten']

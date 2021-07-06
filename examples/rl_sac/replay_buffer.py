@@ -1,10 +1,13 @@
 import numpy as np
 import torch
 import torchvision.transforms as T
+from collections import namedtuple
+import copy
+import random
 
-
-class ReplayBuffer(object):
+class ClumsyReplayBuffer(object):
     """Buffer to store environment transitions."""
+    """ This is quite a bad implementation from the authors"""
     def __init__(self, obs_shape, action_shape, capacity, device):
         self.capacity = capacity
         self.device = device
@@ -23,11 +26,6 @@ class ReplayBuffer(object):
         self.last_save = 0
         self.full = False
 
-        self.transform = T.Compose([
-            T.ToPILImage(),
-            T.ToTensor(),
-            T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-        ])
 
     def __len__(self):
         return self.capacity if self.full else self.idx
@@ -63,3 +61,97 @@ class ReplayBuffer(object):
         # not_dones = self.transform(self.not_dones[idxs]).float().to(self.device)
         # not_dones_no_max = self.transform(self.not_dones_no_max[idxs]).float().to(self.device)
         # return obses, actions, rewards, next_obses, not_dones, not_dones_no_max
+
+
+class ReplayBuffer(object):
+    def __init__(self, capacity, seed=None):
+        assert capacity > 0, "Capacity must be a positive integer"
+        self.capacity = capacity
+        self.data = {}
+
+        self.write_index = -1
+        self.buffer_size = 0
+        self.seed = seed
+        # self.transform = T.Compose([
+        #     T.ToPILImage(),
+        #     T.ToTensor(),
+        #     T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        # ])
+        if self.seed is not None:
+            np.random.seed(seed)
+
+    def add(self, transition):
+        self.write_index += 1
+        if self.write_index >= self.capacity:
+            self.write_index = 0
+        if self.buffer_size < self.capacity:
+            self.buffer_size += 1
+        else:
+            self.buffer_size = self.capacity
+
+        self.data[self.write_index] = transition
+
+    def sample(self, batchsize, replacement=True):
+        indices = np.random.choice(self.buffer_size, batchsize, replace=replacement)
+        len_transition = len(self.data[0])
+        batch = []
+        for j in range(len_transition):
+            batch.append([self.data[idx][j] for idx in indices])
+        # batch = [self.data[idx] for idx in indices]
+        return copy.deepcopy(batch)
+
+    def __len__(self):
+        return self.buffer_size
+
+    def __iter__(self):
+        self.iter_idx = -1
+        return self
+
+    def __next__(self):
+        self.iter_idx += 1
+        if self.iter_idx < self.buffer_size:
+            return self.data[self.iter_idx]
+        else:
+            raise StopIteration()
+
+    def next(self):
+        return self.__next__()
+
+
+#
+#
+# # Git from
+# # https://github.com/pytorch/tutorials/blob/master/Reinforcement%20(Q-)Learning%20with%20PyTorch.ipynb
+# # modified for ssw-batman project, Jun Jin, June 24, 14:49:00 MDT 2019
+# # robot_state, observation, action, reward, mask, next_robot_state, next_observation
+# Transition = namedtuple(
+#     'Transition', ('robot_state', 'observation', 'action', 'mask', 'reward', 'next_robot_state', 'next_observation'))
+#
+# class ReplayMemory(object):
+#
+#     def __init__(self, capacity):
+#         self.capacity = capacity
+#         self.memory = []
+#         self.position = 0
+#         self.transform = T.Compose([
+#             T.ToPILImage(),
+#             T.ToTensor(),
+#             T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+#         ])
+#
+#     def push(self, *args):
+#         """Saves a transition."""
+#         if len(self.memory) < self.capacity:
+#             self.memory.append(None)
+#         self.memory[self.position] = Transition(*args)
+#         self.position = (self.position + 1) % self.capacity
+#
+#     def sample(self, batch_size):
+#         indices = np.random.choice(self.buffer_size, batchsize, replace=replacement)
+#         batch = [self.data[idx] for idx in indices]
+#
+#         return indices, batch
+#         return random.sample(self.memory, batch_size)
+#
+#     def __len__(self):
+#         return len(self.memory)

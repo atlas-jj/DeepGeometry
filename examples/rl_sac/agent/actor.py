@@ -58,12 +58,12 @@ class DiagGaussianActor(nn.Module):
     """torch.distributions implementation of an diagonal Gaussian policy."""
 
     def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth,
-                 log_std_bounds):
+                 log_std_bounds, layer_norm=False):
         super().__init__()
 
         self.log_std_bounds = log_std_bounds
         self.trunk = utils.mlp(obs_dim, hidden_dim, 2 * action_dim,
-                               hidden_depth)
+                               hidden_depth, layer_norm=layer_norm)
 
         self.outputs = dict()
         self.apply(utils.weight_init)
@@ -94,23 +94,40 @@ class DiagGaussianActor(nn.Module):
 
 
 class DiagGaussianActorWithEncoder(nn.Module):
-    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds):
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, has_proprio_input, proprio_dim, proprio_expanded_dim):
         super().__init__()
         self.image_encoder = None
-        # self.before_mlp_layers = nn.Sequential(
-        #     nn.Linear(obs_dim, 256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(256, 128),
-        #     nn.ReLU(inplace=True)
-        # )
-        self.mlp_actor = DiagGaussianActor(obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds)
+        self.has_proprio_input = has_proprio_input
+        if has_proprio_input:
+            self.proprio_dim = proprio_dim  # joint, joint_vel, joint_torque
+            self.proprio_layer = nn.Sequential(
+                nn.Linear(self.proprio_dim, proprio_expanded_dim),
+                nn.ReLU(inplace=True),
+                # nn.Linear(64, proprio_expanded_dim),
+                # nn.ReLU(inplace=True)
+            )
+            self.mlp_actor = DiagGaussianActor(obs_dim+proprio_expanded_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, layer_norm=True)
+        else:
+            self.mlp_actor = DiagGaussianActor(obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, layer_norm=False)
 
     def set_image_encoder(self, _encoder):
         self.image_encoder = _encoder
 
     def forward(self, obs):
-        obs = self.image_encoder(obs)
-        # obs = self.before_mlp_layers(obs)
+        if self.has_proprio_input:
+            # print('actor feedins')
+            img_obs = self.image_encoder(obs['image'])
+            # print('img_obs')
+            # print(img_obs)
+            # print('proprio_signals')
+            # print(obs['proprios'])
+            proprio_signals = self.proprio_layer(obs['proprios'])
+            # print('proprio_signals, expanded')
+            # print(proprio_signals)
+            obs = torch.hstack((img_obs, proprio_signals))
+            # obs = nn.LayerNorm(obs.size()[1:], elementwise_affine=False)(obs)  # without learnable layernorm
+        else:
+            obs = self.image_encoder(obs)
         return self.mlp_actor(obs)
 
     def log(self, logger, step):

@@ -79,9 +79,11 @@ class SACAgent(Agent):
         return self.log_alpha.exp()
 
     def act(self, obs, sample=False):
-        obs = self.transform(obs)
-        obs = torch.FloatTensor(obs).to(self.device)
-        obs = obs.unsqueeze(0)
+        obs['image'] = self.transform(obs['image'])
+        obs['image'] = torch.FloatTensor(obs['image']).to(self.device)
+        obs['image'] = obs['image'].unsqueeze(0)
+        obs['proprios'] = torch.FloatTensor(obs['proprios']).to(self.device)
+        obs['proprios'] = obs['proprios'].unsqueeze(0)
         dist = self.actor(obs)
         action = dist.sample() if sample else dist.mean
         action = action.clamp(*self.action_range)
@@ -146,15 +148,18 @@ class SACAgent(Agent):
             self.log_alpha_optimizer.step()
 
     def update(self, replay_buffer, logger, step):
-        obs, action, reward, next_obs, not_done, not_done_no_max = replay_buffer.sample(
-            self.batch_size)
+        obs, action, reward, next_obs, not_done, not_done_no_max = replay_buffer.sample(self.batch_size)
+        obs_images = torch.stack([self.transform(obs[i]['image']) for i in range(len(obs))]).to(self.device)
+        obs_proprios = torch.stack([torch.FloatTensor(obs[i]['proprios']) for i in range(len(obs))]).to(self.device)
+        obs = {'proprios': obs_proprios, 'image': obs_images}
+        next_obs_images = torch.stack([self.transform(next_obs[i]['image']) for i in range(len(next_obs))]).to(self.device)
+        next_obs_proprios = torch.stack([torch.FloatTensor(next_obs[i]['proprios']) for i in range(len(next_obs))]).to(self.device)
+        next_obs = {'proprios': next_obs_proprios, 'image': next_obs_images}
 
-        logger.log('train/batch_reward', reward.mean(), step)
-        obs = torch.stack([self.transform(obs[i]) for i in range(obs.shape[0])]).to(self.device)
-        next_obs = torch.stack([self.transform(next_obs[i]) for i in range(next_obs.shape[0])]).to(self.device)
-        action = torch.as_tensor(action, device=self.device)
-        reward = torch.as_tensor(reward, device=self.device)
-        not_done_no_max = torch.as_tensor(not_done_no_max, device=self.device)
+        action = torch.FloatTensor(action).to(self.device)
+        reward = torch.FloatTensor(reward).to(self.device).unsqueeze(1)
+        logger.log('train/batch_reward', reward.mean().item(), step)
+        not_done_no_max = torch.FloatTensor(not_done_no_max).to(self.device).unsqueeze(1)
         self.update_critic(obs, action, reward, next_obs, not_done_no_max,
                            logger, step)
 

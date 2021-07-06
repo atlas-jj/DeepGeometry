@@ -27,7 +27,7 @@ class DeepGeometrySetVisualizer:
         self.name_prefix = _name_prefix
 
     def vis_debugger(self, batch_img_tensors, conv_heatmaps, gauss_heatmaps, vi_heatmaps, mu_xs, mu_ys,
-                     show_graphs=False):
+                     show_graphs=False, local=False):
         self.vis_on_pure_background(mu_xs, mu_ys, show_graphs=show_graphs)
         self.vis_on_image(mu_xs, mu_ys, batch_img_tensors, show_graphs=show_graphs)
         self.vis_on_conv_heatmaps(mu_xs, mu_ys, conv_heatmaps, show_graphs=show_graphs)
@@ -35,7 +35,7 @@ class DeepGeometrySetVisualizer:
         print('vi heatmaps dim')
         print(vi_heatmaps.shape)
         self.vis_on_vi_heatmaps(mu_xs, mu_ys, vi_heatmaps, show_graphs=show_graphs)
-        self.vis_heatmap_effects(mu_xs, mu_ys, conv_heatmaps, gauss_heatmaps, vi_heatmaps)
+        self.vis_heatmap_effects(mu_xs, mu_ys, conv_heatmaps, gauss_heatmaps, vi_heatmaps, local=local)
 
     def vis_on_pure_background(self, mu_xs, mu_ys, show_graphs=False):
         # draw a pure background and show points
@@ -126,13 +126,13 @@ class DeepGeometrySetVisualizer:
             plt.savefig(self.save_dir + '/' + save_file_prefix + '_N'+str(n) + '.png')
             plt.clf()
 
-    def vis_heatmap_effects(self, mu_xs, mu_ys, conv_heatmaps, gauss_heatmaps, vi_heatmaps):
+    def vis_heatmap_effects(self, mu_xs, mu_ys, conv_heatmaps, gauss_heatmaps, vi_heatmaps, local=False):
         # save 20 heatmaps on one figure for a batch of samples, plot mu_x, mu_y on each heatmap
         # save conv_heatmaps.png, gauss_heatmaps.png, vi_heatmaps.png
         # sum up 20 Gaussian heatmaps, show as one figure.
         self.vis_bulk_maps(mu_xs, mu_ys, conv_heatmaps, save_file_prefix=self.name_prefix + '_all_conv_heatmaps')
         self.vis_bulk_maps(mu_xs, mu_ys, gauss_heatmaps, save_file_prefix=self.name_prefix + '_all_gauss_heatmaps')
-        self.vis_bulk_maps(mu_xs, mu_ys, vi_heatmaps, save_file_prefix=self.name_prefix + '_all_vi_heatmaps')
+        self.vis_bulk_maps(mu_xs, mu_ys, vi_heatmaps, save_file_prefix=self.name_prefix + '_all_vi_heatmaps', local=local)
         # sum up 20 Gaussian heatmaps
         N, K = mu_xs.shape
         for n in range(N):
@@ -144,7 +144,7 @@ class DeepGeometrySetVisualizer:
             plt.clf()
         return None
 
-    def vis_bulk_maps(self, mu_xs, mu_ys, heat_maps, save_file_prefix):
+    def vis_bulk_maps(self, mu_xs, mu_ys, heat_maps, save_file_prefix, local=False):
         N, K = mu_xs.shape
         h, w = heat_maps.shape[2:4] if heat_maps is not None else (128, 128)
         # rectify the mu_xs and mu_ys
@@ -159,7 +159,8 @@ class DeepGeometrySetVisualizer:
                 fig.add_subplot(rows, columns, k)
                 plt.imshow(img, cmap='viridis')
                 # plot the key point
-                plt.scatter(x=mu_xs[n, k-1].item(), y=mu_ys[n, k-1].item(), c='r', s=3)
+                if not local:
+                    plt.scatter(x=mu_xs[n, k-1].item(), y=mu_ys[n, k-1].item(), c='r', s=3)
                 plt.axis('off')
             # save
             plt.savefig(self.save_dir + '/' + save_file_prefix + '_N' + str(n) + '.png')

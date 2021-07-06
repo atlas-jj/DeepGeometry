@@ -1,0 +1,4 @@
+sbatch jobs/deep_geometry_32_press_button.sh
+sbatch jobs/deep_geometry_64_press_button.sh
+sbatch jobs/deep_geometry_64_box_close.sh
+sbatch jobs/deep_geometry_128_box_close.sh

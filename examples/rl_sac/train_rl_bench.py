@@ -166,6 +166,9 @@ class Workspace(object):
                 with utils.eval_mode(self.agent):
                     action = self.agent.act(obs, sample=False)
                 obs, reward, done = self.eval_env.step(wrap_action_with_gripper(action))
+                done = True if episode_step + 1 == self.cfg.max_episode_steps else False
+                print('Eval step {}, episode {}'.format(i_step, episode))
+                print(action)
                 obs = parse_obs(obs, self.cfg.obs_key)
                 i_step += 1
                 # self.video_recorder.record(self.env)
@@ -193,6 +196,7 @@ class Workspace(object):
         print('num of train steps {}'.format(self.cfg.num_train_steps))
         while self.step < self.cfg.num_train_steps:
             if done:
+                print('done true')
                 if self.step > 0:
                     self.logger.log('train/duration',
                                     time.time() - start_time, self.step)
@@ -231,9 +235,10 @@ class Workspace(object):
             # run training update
             if self.step >= self.cfg.num_seed_steps:
                 self.agent.update(self.replay_buffer, self.logger, self.step)
-            print('step {}'.format(self.step))
+            print('train step {}'.format(self.step))
             print(action)
             next_obs, reward, done = self.env.step(wrap_action_with_gripper(action))
+            done = True if episode_step + 1 == self.cfg.max_episode_steps else False
             next_obs = parse_obs(next_obs, self.cfg.obs_key)
             # allow infinite bootstrap
             done = float(done)

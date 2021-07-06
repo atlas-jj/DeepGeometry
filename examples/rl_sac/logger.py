@@ -218,4 +218,6 @@ class Logger(object):
             return
         torch.save(actor.image_encoder.state_dict(), self._log_dir + '/' + str(step) + '_encoder.pth')
         torch.save(actor.mlp_actor.state_dict(), self._log_dir + '/' + str(step) + '_mlp.pth')
+        if actor.has_proprio_input:
+            torch.save(actor.proprio_layer.state_dict(), self._log_dir + '/' + str(step) + '_proprio_layer.pth')
 

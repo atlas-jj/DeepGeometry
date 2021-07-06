@@ -8,7 +8,7 @@ import os
 from collections import deque
 import random
 import math
-
+import operator
 # import dmc2gym
 #
 #
@@ -109,11 +109,14 @@ class MLP(nn.Module):
         return self.trunk(x)
 
 
-def mlp(input_dim, hidden_dim, output_dim, hidden_depth, output_mod=None):
+def mlp(input_dim, hidden_dim, output_dim, hidden_depth, output_mod=None, layer_norm=False):
+    mods = []
+    if layer_norm:
+        mods += [nn.LayerNorm(input_dim)]  # , elementwise_affine=False
     if hidden_depth == 0:
-        mods = [nn.Linear(input_dim, output_dim)]
+        mods += [nn.Linear(input_dim, output_dim)]
     else:
-        mods = [nn.Linear(input_dim, hidden_dim), nn.ReLU(inplace=True)]
+        mods += [nn.Linear(input_dim, hidden_dim), nn.ReLU(inplace=True)]
         for i in range(hidden_depth - 1):
             mods += [nn.Linear(hidden_dim, hidden_dim), nn.ReLU(inplace=True)]
         mods.append(nn.Linear(hidden_dim, output_dim))
@@ -129,3 +132,9 @@ def to_np(t):
         return np.array([])
     else:
         return t.cpu().detach().numpy()
+
+def cropND(img, bounding):
+    start = tuple(map(lambda a, da: a//2-da//2, img.shape, bounding))
+    end = tuple(map(operator.add, start, bounding))
+    slices = tuple(map(slice, start, end))
+    return img[slices]

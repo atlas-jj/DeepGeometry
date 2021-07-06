@@ -1,3 +1,9 @@
+"""
+Training RL bench tasks were aborted because RL bench depends on V-REP, coppeliaSim,
+which can't be run in remote servers without a display.
+I hope CoppeliaSim can sovle this issue otherwise RLbench is really hard to use!
+"""
+
 import hydra
 import yaml
 from examples.rl_sac.encoders.make_encoders import *
@@ -46,5 +52,5 @@ def act(obs, sample=False):
 # load parameters
 actor.mlp_actor.load_state_dict(torch.load('0_mlp.pth'))
 actor.image_encoder.load_state_dict(torch.load('0_encoder.pth'))
-
+actor.proprio_layer.load_state_dict(torch.load('0_proprio_layer.pth'))
 actions = act(torch.ones(3, 128, 128))

@@ -2,11 +2,14 @@ actor:
   class: agent.actor.DiagGaussianActorWithEncoder
   need_encoder: True
   params:
-    obs_dim: 896
-    action_dim: 7
+    obs_dim: 448
+    action_dim: ${agent.params.action_dim}
     hidden_depth: 2
     hidden_dim: 64
-    log_std_bounds: [-5, 2]
+    log_std_bounds: [ -5, 2 ]
+    has_proprio_input: True
+    proprio_dim: 4  #
+    proprio_expanded_dim: 16
 
 encoder:
   name: m1_deep_geometry

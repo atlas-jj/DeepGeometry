@@ -8,11 +8,11 @@ import examples.rl_sac.utils as utils
 
 class DoubleQCritic(nn.Module):
     """Critic network, employes double Q-learning."""
-    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth):
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, layer_norm=False):
         super().__init__()
 
-        self.Q1 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
-        self.Q2 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
+        self.Q1 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth, layer_norm=layer_norm)
+        self.Q2 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth, layer_norm=layer_norm)
 
         self.outputs = dict()
         self.apply(utils.weight_init)
@@ -42,26 +42,34 @@ class DoubleQCritic(nn.Module):
 
 
 class DoubleQCriticWithEncoder(nn.Module):
-    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth):
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, has_proprio_input, proprio_dim, proprio_expanded_dim):
         super().__init__()
         self.image_encoder = None
-        # self.before_mlp_layers = nn.Sequential(
-        #     nn.Linear(obs_dim, 256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(256, 128),
-        #     nn.ReLU(inplace=True)
-        # )
-        self.mlp_critic = DoubleQCritic(obs_dim, action_dim, hidden_dim, hidden_depth)
+        self.has_proprio_input = has_proprio_input
+        if has_proprio_input:
+            self.proprio_dim = proprio_dim  # joint, joint_vel, joint_torque
+            self.proprio_layer = nn.Sequential(
+                nn.Linear(self.proprio_dim, 64),
+                nn.ReLU(inplace=True),
+                nn.Linear(64, proprio_expanded_dim),
+                nn.ReLU(inplace=True)
+            )
+            self.mlp_critic = DoubleQCritic(obs_dim+proprio_expanded_dim, action_dim, hidden_dim, hidden_depth, layer_norm=True)
+        else:
+            self.mlp_critic = DoubleQCritic(obs_dim, action_dim, hidden_dim, hidden_depth, layer_norm=False)
 
     def set_image_encoder(self, _encoder):
         self.image_encoder = _encoder
 
     def forward(self, obs, action):
-        obs = self.image_encoder(obs)
-        # obs = self.before_mlp_layers(obs)
+        if self.has_proprio_input:
+            obs_img = self.image_encoder(obs['image'])
+            proprio_signals = self.proprio_layer(obs['proprios'])
+            obs = torch.hstack((obs_img, proprio_signals))
+        else:
+            obs = self.image_encoder(obs)
         return self.mlp_critic(obs, action)
 
     def log(self, logger, step):
         self.mlp_critic.log(logger, step)
-
 
