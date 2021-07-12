@@ -40,6 +40,21 @@ class LinearExpandingLayer(nn.Module):
         repeated_weight = self.weight.repeat_interleave(self.basis_vector_dim)
         return x * repeated_weight
 
+class GraphBasisTaskRelevanceLayer(nn.Module):
+    def __init__(self, _basis_vector_dim):
+        super(GraphBasisTaskRelevanceLayer, self).__init__()
+        self.weight_layer = nn.Sequential(
+            nn.Linear(_basis_vector_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+            # # nn.Hardtanh(min_val=0, max_val=1)  # clip to [0,1]
+            # nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.weight_layer(x)
+
+
 
 class DeepGeometricSet(nn.Module):
 
@@ -64,13 +79,21 @@ class DeepGeometricSet(nn.Module):
         _gnn_params = dict(_gnn_params)
         gnn_layers_nums, gnn_msg_dim, gnn_h_dim, gnn_output_dim, share_basis_graphs = list(_gnn_params.values())
         pp_graph_layer_num, pl_graph_layer_num, ll_graph_layer_num = gnn_layers_nums
+        # self.basis_weight_layer = LinearExpandingLayer(gnn_output_dim, len(self.graph_sets))
         if share_basis_graphs:
             self.pp_basis = PPGraphBasis(pp_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
             self.pl_basis = PLGraphBasis(pl_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
             self.ll_basis = LLGraphBasis(ll_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
+            self.pp_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.pl_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.ll_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
             self.graph_sets = {'pp1': self.pp_basis, 'pp2': self.pp_basis, 'pp3': self.pp_basis,
                                'pl1': self.pl_basis, 'pl2': self.pl_basis,
                                'll1': self.ll_basis, 'll2': self.ll_basis}
+            self.task_relevance_layers = {'pp1': self.pp_relevance, 'pp2': self.pp_relevance, 'pp3': self.pp_relevance,
+                                          'pl1': self.pl_relevance, 'pl2': self.pl_relevance,
+                                          'll1': self.ll_relevance, 'll2': self.ll_relevance}
+
         else:
             self.pp1 = PPGraphBasis(pp_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
             self.pp2 = PPGraphBasis(pp_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
@@ -79,10 +102,20 @@ class DeepGeometricSet(nn.Module):
             self.pl2 = PLGraphBasis(pl_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
             self.ll1 = LLGraphBasis(ll_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
             self.ll2 = LLGraphBasis(ll_graph_layer_num, msg_dim=gnn_msg_dim, h_dim=gnn_h_dim, output_dim=gnn_output_dim)
+            self.pp1_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.pp2_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.pp3_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.pl1_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.pl2_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.ll1_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
+            self.ll2_relevance = GraphBasisTaskRelevanceLayer(gnn_output_dim)
             self.graph_sets = {'pp1': self.pp1, 'pp2': self.pp2, 'pp3': self.pp3,
                                'pl1': self.pl1, 'pl2': self.pl2,
                                'll1': self.ll1, 'll2': self.ll2}
-        self.basis_weight_layer = LinearExpandingLayer(gnn_output_dim, len(self.graph_sets))
+            self.task_relevance_layers = {'pp1': self.pp1_relevance, 'pp2': self.pp2_relevance, 'pp3': self.pp3_relevance,
+                                          'pl1': self.pl1_relevance, 'pl2': self.pl2_relevance,
+                                          'll1': self.ll1_relevance, 'll2': self.ll2_relevance}
+
         self.debug_tool = _debug_tool
         self.debug_frequency = _debug_frequency
         self.it_count = 0
@@ -107,22 +140,47 @@ class DeepGeometricSet(nn.Module):
                                          show_graphs=True,
                                          local=True
                                          )
-
         else:
             x, _, _, _ = self.vi_key_pointer(x)  # x: k=20 key points with visual features
 
-        geometry_basis_encodings = torch.cat(
-            [self.graph_sets['pp1'](x[:, 0:2, :]),  # N, C, h, w
-             self.graph_sets['pp2'](x[:, 2:4, :]),
-             self.graph_sets['pp3'](x[:, 4:6, :]),
-             self.graph_sets['pl1'](x[:, 6:9, :]),
-             self.graph_sets['pl2'](x[:, 9:12, :]),
-             self.graph_sets['ll1'](x[:, 12:16, :]),
-             self.graph_sets['ll2'](x[:, 16:20, :])
-             ], 1)  # an array of _gnn_output_dim vectors
-        # print('geometry basis encodings shape')
-        # print(geometry_basis_encodings.shape)   # 10 * 3584(7*_gnn_output_dim)
-        return self.basis_weight_layer(geometry_basis_encodings)
+        # geometry_basis_encodings = torch.cat(
+        #     [self.graph_sets['pp1'](x[:, 0:2, :]),  # N, C, h, w
+        #      self.graph_sets['pp2'](x[:, 2:4, :]),
+        #      self.graph_sets['pp3'](x[:, 4:6, :]),
+        #      self.graph_sets['pl1'](x[:, 6:9, :]),
+        #      self.graph_sets['pl2'](x[:, 9:12, :]),
+        #      self.graph_sets['ll1'](x[:, 12:16, :]),
+        #      self.graph_sets['ll2'](x[:, 16:20, :])
+        #      ], 1)  # an array of _gnn_output_dim vectors
+
+        geometry_basis_encodings = {'pp1': self.graph_sets['pp1'](x[:, 0:2, :]),
+                                    'pp2': self.graph_sets['pp2'](x[:, 2:4, :]),
+                                    'pp3': self.graph_sets['pp3'](x[:, 4:6, :]),
+                                    'pl1': self.graph_sets['pl1'](x[:, 6:9, :]),
+                                    'pl2': self.graph_sets['pl2'](x[:, 9:12, :]),
+                                    'll1': self.graph_sets['ll1'](x[:, 12:16, :]),
+                                    'll2': self.graph_sets['ll2'](x[:, 16:20, :])
+                                    }
+
+        geometry_basis_weights = {'pp1': self.task_relevance_layers['pp1'](geometry_basis_encodings['pp1']),
+                                  'pp2': self.task_relevance_layers['pp2'](geometry_basis_encodings['pp2']),
+                                  'pp3': self.task_relevance_layers['pp3'](geometry_basis_encodings['pp3']),
+                                  'pl1': self.task_relevance_layers['pl1'](geometry_basis_encodings['pl1']),
+                                  'pl2': self.task_relevance_layers['pl2'](geometry_basis_encodings['pl2']),
+                                  'll1': self.task_relevance_layers['ll1'](geometry_basis_encodings['ll1']),
+                                  'll2': self.task_relevance_layers['ll2'](geometry_basis_encodings['ll2'])
+                                  }
+        global_task_embedding = torch.cat(
+            [geometry_basis_encodings['pp1'] * geometry_basis_weights['pp1'],
+             geometry_basis_encodings['pp2'] * geometry_basis_weights['pp2'],
+             geometry_basis_encodings['pp3'] * geometry_basis_weights['pp3'],
+             geometry_basis_encodings['pl1'] * geometry_basis_weights['pl1'],
+             geometry_basis_encodings['pl2'] * geometry_basis_weights['pl2'],
+             geometry_basis_encodings['ll1'] * geometry_basis_weights['ll1'],
+             geometry_basis_encodings['ll2'] * geometry_basis_weights['ll2']], 1) # an array of _gnn_output_dim vectors
+        print('geometry basis encodings shape')
+        print(global_task_embedding.shape)   # 10 * 3584(7*_gnn_output_dim)
+        return global_task_embedding
 
 
 if __name__ == "__main__":
@@ -146,7 +204,7 @@ if __name__ == "__main__":
                                          _vi_key_pointer=vi_key_pointer,
                                          key_point_num=20, _gnn_params=gnn_params, _debug_tool=debug_tool, _debug_frequency=1
                                          )
-    deep_geometry_set.apply(init_weights)
+    # deep_geometry_set.apply(init_weights)
 
     # prepare an image tensor
     device = 'cuda:0'
@@ -160,7 +218,7 @@ if __name__ == "__main__":
     images = transform(images).to(device).unsqueeze(0)
     # images = torch.randn((10,3,128,128)).to(device)
 
-    basis_weighted_layer = deep_geometry_set(images)  # dim N * (7*_gnn_output_dim)
+    task_embeddings = deep_geometry_set(images)  # dim N * (7*_gnn_output_dim)
     # print(basis_weighted_layer)
     # from pytorch_model_summary import summary
     # print(summary(deep_geometry_set, torch.zeros(1, 3, 128, 128).to(device), show_input=False, show_hierarchical=True))

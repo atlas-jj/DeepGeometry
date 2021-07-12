@@ -83,8 +83,8 @@ class DeepGeometrySetVisualizer:
             print(heatmaps.shape)
         print(save_file_prefix + ' image h {}, w{}'.format(h, w))
         # rectify the mu_xs and mu_ys
-        mu_xs = (mu_xs + 1) * h / 2
-        mu_ys = (mu_ys + 1) * w / 2
+        mu_xs = (mu_xs + 1) * w / 2
+        mu_ys = (mu_ys + 1) * h / 2
         for n in range(N):
             if heatmaps is not None:  # only plot on the first heatmap of k heatmaps
                 img = heatmaps[n, 0] if de_normalize is False else de_normalize_image(heatmaps[n, 0])
@@ -148,8 +148,8 @@ class DeepGeometrySetVisualizer:
         N, K = mu_xs.shape
         h, w = heat_maps.shape[2:4] if heat_maps is not None else (128, 128)
         # rectify the mu_xs and mu_ys
-        mu_xs = (mu_xs + 1) * h / 2
-        mu_ys = (mu_ys + 1) * w / 2
+        mu_xs = (mu_xs + 1) * w / 2
+        mu_ys = (mu_ys + 1) * h / 2
         fig = plt.figure(figsize=(4, 5))
         columns = 4
         rows = 5

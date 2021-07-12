@@ -28,8 +28,8 @@ class ImageEncoder(nn.Module):
         for i in range(len(layer_params['filter num'])-1):
             layers.append(nn.Conv2d(layer_params['filter num'][i], layer_params['filter num'][i+1],
                                     kernel_size=layer_params['kernel sizes'][i], stride=layer_params['strides'][i]))
-            # layers.append(nn.BatchNorm2d(filter_nums[i]))
-            layers.append(nn.ReLU(inplace=True))
+            # layers.append(nn.BatchNorm2d(layer_params['filter num'][i+1]))
+            layers.append(nn.LeakyReLU(inplace=True))
         self.encoder = nn.Sequential(*layers)
 
     def forward(self, batch_image_tensors):
@@ -46,6 +46,7 @@ class KeyPointHeatmapEncoder(nn.Module):
             if layer_params['operator'] == 'conv2d':
                 layers.append(nn.Conv2d(layer_params['filter num'][i], layer_params['filter num'][i + 1],
                                         kernel_size=layer_params['kernel sizes'][i], stride=layer_params['strides'][i]))
+                layers.append(nn.BatchNorm2d(layer_params['filter num'][i+1]))
                 layers.append(nn.ReLU(inplace=True))
             else:
                 layers.append(nn.MaxPool2d(kernel_size=layer_params['kernel sizes'][i], stride=layer_params['strides'][i]))
@@ -172,7 +173,7 @@ class GraphReadOut(nn.Module):
         self.node_num = node_num
         self.mlp = nn.Sequential(
             View((-1, self.node_num * self.input_dim)),
-            # nn.LayerNorm(self.node_num*self.input_dim),  # layer norm is good
+            nn.LayerNorm(self.node_num*self.input_dim),  # layer norm is good
             nn.Linear(self.node_num * self.input_dim, self.output_dim),
             nn.LeakyReLU(0.2),
         )
